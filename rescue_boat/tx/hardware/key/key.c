@@ -8,11 +8,14 @@
 u8 g_chan = 0;
 u8 g_srMode = 0;
 u8 g_isKeyDown = 0;
-u8 g_recorder = 0;
+uint16_t g_recorder = 0;
 u8 g_engReverse = 0;
 u32 g_lowPowerTimer = 0;
 u16 g_lowPowerCnt = 0;
 u8 g_isPowerOn = 0;
+u8 g_pwrkey_release = 0;
+
+#define LONG_PRESS_THRESHOLD 30
 
 
 void setSleepInt();
@@ -23,7 +26,7 @@ void KeyInit(void){
 	
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE );	
 	//gpio_InitStructure.GPIO_Pin = GPIO_Pin_3|GPIO_Pin_4|GPIO_Pin_5|GPIO_Pin_6|GPIO_Pin_7|GPIO_Pin_8|GPIO_Pin_9;
-	gpio_InitStructure.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9;
+	gpio_InitStructure.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9|GPIO_Pin_3;
 	gpio_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
 	gpio_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
 	GPIO_Init(GPIOB, &gpio_InitStructure);
@@ -32,15 +35,18 @@ void KeyInit(void){
 
 static uint16_t GetKeyState() {
 
-	uint16_t keyPort = GPIO_ReadInputData(GPIOB);
+	uint16_t keyPort = ~ GPIO_ReadInputData(GPIOB);
 	//keyPort >>= 8;
 	keyPort &= 0x308;                // PB9 PB8 PB3
+
+	//dprint ("%s, keyPort[%x]\n", __FUNCTION__,keyPort);
 
 	return keyPort;
 }
 
 
-u8 KeyScan(void) {
+uint16_t KeyScan(void) 
+{
 	return GetKeyState();
 }
 
@@ -69,17 +75,26 @@ void KeyUpProc(uint16_t key)
     if (key & 0x200)   // power key 
     {
         // PWR key
+        dprint("key 9 up\n");
         
     } else if (key & 0x100) {
+		dprint("power key up\n");
+		g_pwrkey_release = 1;
 
     } else if (key & 0x08)  {
-
+		
+		dprint("sw key up\n");
+		swMode();
     }
 
 }
 
 void PwrKeyLongPress()
 {
+	if (!g_pwrkey_release) {
+		g_pwrkey_release = 1;
+		return;
+	}
     enterSleepMode();
 
 }
@@ -89,12 +104,17 @@ void KeyLongPress(uint16_t key) {
 	if (key & 0x200)   // power key 
     {
         // PWR key
-        PwrKeyLongPress();
+        //PwrKeyLongPress();
+        dprint("key 9 long press\n");
         
     } else if (key & 0x100) {
 
+		dprint("power down\n");
+    	PwrKeyLongPress();
+
     } else if (key & 0x08)  {
-        swMode();
+        //swMode();
+        dprint("sw key long press\n");
     }
 }
 
@@ -111,20 +131,20 @@ void KeyProc() {
 			g_isKeyDown = 1;
 			KeyDownProc(key);
 			g_recorder = key;
-			//printf("key %d down\r\n",key);
+			dprint("key %d down\r\n",key);
 
 		}
 	} else {
 		if (KEYNULL == key) {
 			g_isKeyDown = 0;
-			if (g_longPressCnt < 60){
+			if (g_longPressCnt < LONG_PRESS_THRESHOLD){
 				KeyUpProc(g_recorder);
 			}
 			g_longPressCnt = 0;
-			//printf("key %d up\r\n",g_recorder);
+			dprint("key %d up\r\n",g_recorder);
 		} else {
 			g_longPressCnt ++;
-			if (g_longPressCnt == 60) {
+			if (g_longPressCnt == LONG_PRESS_THRESHOLD) {
 				KeyLongPress(g_recorder);
 			}
 		}
@@ -164,13 +184,18 @@ void checkPowerOn(void)
 
         if (!GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_8)) {
             counter ++;
-            if (counter > 30) {
+            if (counter > 200) {
                 PWR_LED_ON();
                 break;
             }
-        }
+        } else {
+			counter = 0;
+		}
 
-        delay_ms(100);
+        //delay_second(10);
+        delay_ms(10);
+
+		dprint("count: %d\n", counter);
 
     }
 }

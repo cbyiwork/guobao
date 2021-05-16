@@ -109,6 +109,16 @@ u32 getSystemTick(){
 	return SysTick->VAL;
 }
 
+void delay_second(u16 s)
+{
+	u16 i = 0;
+	while(s--) {
+		for (i=0;i<100;i++) {
+			delay_ms(10);
+		}
+	}
+}
+
 /*
 u32 getTickMs(u32* tmr) {
 	u32 interval = 0;

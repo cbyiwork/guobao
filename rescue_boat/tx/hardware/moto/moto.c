@@ -55,7 +55,7 @@ u8 EnginesSet(void)
 		}
 
 		setDuty(i, g_EngDutyImp[i]);
-		dprint("set ch[%d] duty[%d]\r\n",i,g_EngDutyImp[i]);
+		//dprint("set ch[%d] duty[%d]\r\n",i,g_EngDutyImp[i]);
 		
 	}
 

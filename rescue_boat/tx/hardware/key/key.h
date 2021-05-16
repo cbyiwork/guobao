@@ -7,7 +7,7 @@
 //2010/5/13	
 						
 void KeyInit(void);
-u8 KeyScan(void);
+uint16_t KeyScan(void);
 void KeyPorc(void);
 
 /*
@@ -20,7 +20,7 @@ void KeyPorc(void);
 #define KEY7_VAL  ((~0x40)&0x7f)
 #define KEYNULL    0x7f
 */
-#define KEYNULL    0x208
+#define KEYNULL    0//0x208
 
 extern u8 g_srMode;
 		 

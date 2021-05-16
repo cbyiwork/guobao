@@ -132,7 +132,7 @@ int main(void)
 
 	//dsp_test();
 
-	setSleepInt();
+	//setSleepInt();
 
     checkPowerOn();
 
