@@ -4,8 +4,8 @@
 #include "stm32f10x.h"
 #include <stdio.h>
 
-#define CTL_STICK_ON()		GPIO_ResetBits(GPIOA,GPIO_Pin_8)
-#define CTL_STICK_OFF()		GPIO_SetBits(GPIOA,GPIO_Pin_8)
+//#define CTL_STICK_ON()		GPIO_ResetBits(GPIOA,GPIO_Pin_8)
+//#define CTL_STICK_OFF()		GPIO_SetBits(GPIOA,GPIO_Pin_8)
 
 void AdcInit(void);
 //#define ADC1_DR_Address ((u32)0x4001244C)
@@ -13,7 +13,7 @@ extern uint32_t ADC_ConvertedResult[4];
 #define ADC1_DR_Address        ((uint32_t)(&ADC1->DR))
 //void getAdcConvertResult(void);
 void checkCtlStick(void);
-void rfSendInfoProc();
+void rfSendInfoProc(void);
 
 #define ADC_STEP_VERTICAL 15
 #define ADC_STEP_HORIZONTAL 15

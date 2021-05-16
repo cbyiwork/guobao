@@ -1,8 +1,9 @@
 #include "oled.h"
 #include "stdlib.h"
-#include "font.h"  	 
+//#include "font.h"  	 
 #include "../sys/delay.h"
 #include "../uart/uart.h"
+#include "../timer/timer.h"
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序只供学习使用，未经作者许可，不得用于其它任何用途
 //Mini STM32开发板
@@ -30,6 +31,7 @@
 //[7]0 1 2 3 ... 127 		   
 u8 OLED_GRAM[128][8];	 
 u8 g_refreshScreen=0;
+
 
 //更新显存到LCD		 
 void OLED_Refresh_Gram(void)
@@ -61,9 +63,18 @@ void OLED_WR_Byte(u8 dat,u8 cmd)
 	u8 i;			  
 	//OLED_RS=cmd; //写命令
 	SET_SCK(0);
-	SET_CD(cmd);
+	//SET_CD(cmd);
 	//OLED_CS=0;	
 	SET_CS(0);
+
+	spiDummy(5);
+
+	//SET_SCK(1);
+	SET_SDA(cmd);
+	SET_SCK(1);
+	spiDummy(5);
+	SET_SCK(0); 
+	
 	for(i=0;i<8;i++)
 	{			  
 		//OLED_SCLK=0;
@@ -144,6 +155,7 @@ void OLED_Fill(u8 x1,u8 y1,u8 x2,u8 y2,u8 dot)
 	}													    
 	OLED_Refresh_Gram();//更新显示
 }
+/*
 //在指定位置显示一个字符,包括部分字符
 //x:0~127
 //y:0~63
@@ -204,10 +216,10 @@ void OLED_ShowNum(u8 x,u8 y,u32 num,u8 len,u8 size)
 		}
 	 	OLED_ShowChar(x+(size/2)*t,y,temp+'0',size,1); 
 	}
-} 
+}
 //显示字符串
 //x,y:起点坐标  
-//*p:字符串起始地址
+// *p:字符串起始地址
 //用16字体
 void OLED_ShowString(u8 x,u8 y,const u8 *p)
 {
@@ -222,7 +234,7 @@ void OLED_ShowString(u8 x,u8 y,const u8 *p)
         p++;
     }  
 }
-
+*/
 
 void displayPicture(u8 x,u8 y,u8 length,u8 width, u8* p) {
 
@@ -235,6 +247,32 @@ void displayPicture(u8 x,u8 y,u8 length,u8 width, u8* p) {
 				OLED_DrawPoint(x+i,y+j,0);
 			}
 		}		
+	}
+
+}
+
+void addMenuFrame() {
+	u8 i = 0, j = 0;
+	for (i=0;i<3;i++) {
+
+		// 涓婃
+		for (j=0;j<128;j++) {
+			OLED_GRAM[j][i*2+2] |= 0x01;
+		}
+
+		// 鍓嶆
+		OLED_GRAM[0][i*2+2]   |= 0XFF;
+		OLED_GRAM[0][i*2+3] |= 0XFF;
+
+		// 鍚庢
+		OLED_GRAM[127][i*2+2]   |= 0XFF;
+		OLED_GRAM[127][i*2+3] |= 0XFF;
+		
+	}
+
+	// 搴曟
+	for (j=0;j<128;j++) {
+		OLED_GRAM[j][7] |= 0x80;
 	}
 
 }
@@ -254,7 +292,8 @@ void OLED_Init(void)
 					  
 	OLED_WR_Byte(0xAE,OLED_CMD); //关闭显示
 	OLED_WR_Byte(0xD5,OLED_CMD); //设置时钟分频因子,震荡频率
-	OLED_WR_Byte(80,OLED_CMD);   //[3:0],分频因子;[7:4],震荡频率
+	//OLED_WR_Byte(80,OLED_CMD);   //[3:0],分频因子;[7:4],震荡频率
+	OLED_WR_Byte(0x90,OLED_CMD);
 	OLED_WR_Byte(0xA8,OLED_CMD); //设置驱动路数
 	OLED_WR_Byte(0X3F,OLED_CMD); //默认0X3F(1/64) 
 	OLED_WR_Byte(0xD3,OLED_CMD); //设置显示偏移
@@ -272,9 +311,11 @@ void OLED_Init(void)
 	OLED_WR_Byte(0x12,OLED_CMD); //[5:4]配置
 		 
 	OLED_WR_Byte(0x81,OLED_CMD); //对比度设置
-	OLED_WR_Byte(0xEF,OLED_CMD); // 1~255;默认0X7F (亮度设置,越大越亮)
+	//OLED_WR_Byte(0xEF,OLED_CMD); // 1~255;默认0X7F (亮度设置,越大越亮)
+	OLED_WR_Byte(0xb0,OLED_CMD);
 	OLED_WR_Byte(0xD9,OLED_CMD); //设置预充电周期
-	OLED_WR_Byte(0xf1,OLED_CMD); //[3:0],PHASE 1;[7:4],PHASE 2;
+	//OLED_WR_Byte(0xf1,OLED_CMD); //[3:0],PHASE 1;[7:4],PHASE 2;
+	OLED_WR_Byte(0x22,OLED_CMD);
 	OLED_WR_Byte(0xDB,OLED_CMD); //设置VCOMH 电压倍率
 	OLED_WR_Byte(0x30,OLED_CMD); //[6:4] 000,0.65*vcc;001,0.77*vcc;011,0.83*vcc;
 
@@ -284,43 +325,18 @@ void OLED_Init(void)
 	OLED_Clear();
 }
 
-u32 g_refreshScreenTimer = 0;
-void refreshScreen() {
-	//dprint("refresh\r\n");
-	//u32 interval = getTickMs(&g_refreshScreenTimer);
-	//dprint("interval %x\r\n",interval);
-	if (getTickMs(&g_refreshScreenTimer) > 100) {
-		refreshTimer(&g_refreshScreenTimer);
-		OLED_Refresh_Gram();
-		//dprint("refresh\r\n");
+/*
+u8 g_unlockCnt = 0;
+extern u8 g_isUnlockFC;
+void clearUnlock() {
+	if (g_isUnlockFC) {
+		g_unlockCnt ++;
+		if (g_unlockCnt > 35) {
+			g_unlockCnt = 0;
+			g_isUnlockFC = 0;
+		}
 	}
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+}*/
 
 
 

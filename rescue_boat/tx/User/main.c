@@ -31,6 +31,8 @@
 #include "../hardware/adc/adc.h"
 #include "../hardware/timer/timer.h"
 
+void checkPowerOn(void);
+
 void PortInit(void)
 {
 	GPIO_InitTypeDef gpio_InitStructure;
@@ -48,17 +50,45 @@ void PortInit(void)
 	gpio_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
 	GPIO_Init(GPIOA,&gpio_InitStructure);
 
-	gpio_InitStructure.GPIO_Pin = GPIO_Pin_10|GPIO_Pin_11|GPIO_Pin_12|GPIO_Pin_13|GPIO_Pin_14|GPIO_Pin_15;
+	gpio_InitStructure.GPIO_Pin = GPIO_Pin_10|GPIO_Pin_11|GPIO_Pin_13|GPIO_Pin_14|GPIO_Pin_15;
 	gpio_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
 	gpio_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
 
 	GPIO_Init(GPIOB,&gpio_InitStructure);
 	/*pb10: clk, pb11: sda, pb12: pwr, pb14: rst, pb15: cs*/
-	LCD_PWR_SET();
-	PWR_LED_ON();
+	//LCD_PWR_SET();
+	//PWR_LED_ON();
 	
 	
 }
+
+void led_twinkle()
+{
+     static uint8_t state = 0;
+	   
+	   if (state > 0) {
+		    state = 0;
+			  PWR_LED_OFF();
+		 } else {
+			   state = 1;
+		     PWR_LED_ON();
+		 }
+}
+
+void SecondHandler()
+{
+    enterLowpowerMode();
+    //led_twinkle();
+}
+
+unsigned int g_secondTimer = 0;
+void SecondHandlerLoop() {
+	if (getTickMs(&g_secondTimer) > 1000) {
+		refreshTimer(&g_secondTimer);
+		SecondHandler();
+	}
+}
+
 
 extern u8 pwr;
 int main(void)
@@ -75,24 +105,17 @@ int main(void)
 	USART1_Init(115200);
 
 	dprint("%s, %s\r\n",__DATE__, __TIME__);
-	dprint("%s, %s\r\n",__DATE__, __TIME__);
-	dprint("%s, %s\r\n",__DATE__, __TIME__);
-	dprint("%s, %s\r\n",__DATE__, __TIME__);
-	dprint("%s, %s\r\n",__DATE__, __TIME__);
-	dprint("%s, %s\r\n",__DATE__, __TIME__);
-	dprint("%s, %s\r\n",__DATE__, __TIME__);
-	dprint("%s, %s\r\n",__DATE__, __TIME__);
-	dprint("%s, %s\r\n",__DATE__, __TIME__);
-	dprint("%s, %s\r\n",__DATE__, __TIME__);
 	
-
 	PortInit();
 	//NRF_init();
-	TIM3_Configuration();
+	// system tick timer
+	TIM2_Configuration();
+    TIM3_Configuration(20000);
 	KeyInit();
-	NRF24L01_Init();
+	//NRF24L01_Init();
 	//EXTI_PB2_Init();
 	OLED_Init();			//≥ı ºªØ“∫æß   
+	/*
 	t = NRF24L01_Check();
 	if (t!=0) {
 		//OLED_ShowString(0,0, "NRF ERROR");
@@ -100,16 +123,18 @@ int main(void)
 	} else {
 		//OLED_ShowString(0,0, "NRF OK");
 		dprint("NRF OK");
-	}
+	}*/
 
-	g_srMode = 1;
-	TX_Mode();
+	//g_srMode = 1;
+	//TX_Mode();
 
-	NrfPower(3);
+	//NrfPower(3);
 
-	dsp_test();
+	//dsp_test();
 
 	setSleepInt();
+
+    checkPowerOn();
 
 	//OLED_Refresh_Gram();
 	//while(KEYNULL==KeyScan());	
@@ -122,7 +147,9 @@ int main(void)
 		//dprint("run, %d\r\n",pwr);
 		//bar_test();
 		refreshScreen();
-		rfSendInfoProc();
+        SecondHandlerLoop();
+        AdjustEnginesLoop();
+		//rfSendInfoProc();
 		//delay_ms(100);		
 		//printf("key: %d\r\n",key);
 		//dprint("run\r\n");

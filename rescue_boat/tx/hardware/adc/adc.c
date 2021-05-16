@@ -6,13 +6,14 @@
 #include "../timer/timer.h"
 
 #define ADC_Count  6 //每通道采6次
-#define ADC_CHS    4 // 4通道
+#define ADC_CHS    5//4 // 4通道
 
 uint16_t AD_Value[ADC_Count][ADC_CHS];
 uint16_t adcResult[ADC_CHS];
 extern u8 g_refreshScreen;
 extern u8 g_engReverse;
 uint8_t g_txBuf[32] = {0};
+void EnginesDutyCalc(uint8_t isReverse, uint8_t isUp, uint8_t powUp, uint8_t isLeft, uint8_t powLeft);
 
 static void ADC_Config(void)
 {
@@ -37,7 +38,8 @@ static void ADC_Config(void)
     ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 2, ADC_SampleTime_239Cycles5 );
     ADC_RegularChannelConfig(ADC1, ADC_Channel_2, 3, ADC_SampleTime_239Cycles5 );
     ADC_RegularChannelConfig(ADC1, ADC_Channel_3, 4, ADC_SampleTime_239Cycles5 );
-    
+
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_8, 5, ADC_SampleTime_239Cycles5 );
     
     ADC_DMACmd(ADC1, ENABLE);   
     ADC_Cmd(ADC1, ENABLE);  
@@ -74,12 +76,19 @@ static void ADC_gpio_Config(void)
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN; 
     GPIO_Init(GPIOA, &GPIO_InitStructure);    
 
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    
+    /*
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_10MHz;
     GPIO_Init(GPIOA, &GPIO_InitStructure);    
+    */
 
-    CTL_STICK_ON();
+    //CTL_STICK_ON();
 
 }
 
@@ -90,7 +99,7 @@ void AdcInit() {
 	ADC_DMA_Config();
 
 	ADC_SoftwareStartConvCmd(ADC1, ENABLE);
-    	DMA_Cmd(DMA1_Channel1, ENABLE);  
+    DMA_Cmd(DMA1_Channel1, ENABLE);  
 
 }
 
@@ -130,7 +139,9 @@ u8 g_lastLeftPwr = 0;
 u8 g_lastIsUp = 0;
 u8 g_lastUpPwr = 0;
 u8 g_paraChanged = 0;
-void checkCtlStick(){
+u32 g_voltage = 0;
+void checkCtlStick()
+{
 
 	u8 isUp, isLeft = 0;
 	u8 powUp, powLeft = 0;
@@ -140,6 +151,9 @@ void checkCtlStick(){
 	//u8 sta = 0;
 
 	getAdcConvertResult(adcResult);
+    g_voltage = (u32)adcResult[4] * 8067 / 1000;
+    g_voltage *= 21;
+    g_voltage /= 10;
 
 	// left and right
 	if (adcResult[2] > adcResult[3]) {
@@ -156,15 +170,16 @@ void checkCtlStick(){
 		diff = (adcResult[3] - adcResult[2]);
 	}
 
-	if (diff > ADC_STEP_HORIZONTAL*4 ) {		
+	if (diff > ADC_STEP_HORIZONTAL*4 ) 
+    {
 		powLeft = (diff -4* ADC_STEP_HORIZONTAL)/ADC_STEP_HORIZONTAL;
 	}else {
 		powLeft = 0;
 	}
 
-	DspHorizontalBar(40,7,isLeft,powLeft);
-	DspQrudStr(90,7,powLeft);
-	DspDirLeftRight(40-6-1,7,isLeft,powLeft);
+	//DspHorizontalBar(40,7,isLeft,powLeft);
+	//DspQrudStr(90,7,powLeft);
+	//DspDirLeftRight(40-6-1,7,isLeft,powLeft);
 
 
 	if (adcResult[0] > adcResult[1]) {
@@ -188,9 +203,9 @@ void checkCtlStick(){
 		powUp = 0;
 	}
 
-	DspVerticalBar(3,1,isUp,powUp);
-	DspQrudStr(8,6,powUp);
-	DspDirUpDown(8,1,isUp,powUp);
+	//DspVerticalBar(3,1,isUp,powUp);
+	//DspQrudStr(8,6,powUp);
+	//DspDirUpDown(8,1,isUp,powUp);
 
 	//dprint("ctl stick: %x\r\n", isLeft);
 
@@ -202,7 +217,10 @@ void checkCtlStick(){
 		g_lastLeftPwr = powLeft;
 		g_lastIsUp = isUp;
 		g_lastUpPwr = powUp;
-		
+
+        EnginesDutyCalc(0, isUp, powUp, isLeft, powLeft);
+
+        /*
 		memcpy(g_txBuf,"gas:",sizeof("gas:")-1);
 		index += sizeof("gas:");
 		memcpy(g_txBuf+index,(u8*)&isLeft,1);
@@ -216,6 +234,7 @@ void checkCtlStick(){
 		memcpy(g_txBuf+index,(u8*)&g_engReverse,1);	
 		index += 1;
 		memcpy(g_txBuf+index,"end",sizeof("end")-1);
+		*/
 	}
 
 	
@@ -265,6 +284,90 @@ void rfSendInfoProc() {
 	}
 
 }
+
+/*
+void EnginesDutyCalc(uint8_t isReverse, uint8_t isUp, uint8_t powUp, uint8_t isLeft, uint8_t powLeft)
+{
+
+	u16 acc = 0;
+
+	if (0 == isReverse) {
+		if (0 == isUp) {
+			acc = 1500 + 5 * powUp;
+			if (acc > 2000) {
+				g_EngDuty[0] = 2000;
+			} else {
+				g_EngDuty[0] = acc;
+			}
+		} else {
+
+			acc = 1500 - 5 * powUp;
+			if (acc < 1000) {
+				g_EngDuty[0] = 1000;
+			} else {
+				g_EngDuty[0] = acc;
+			}
+		}
+
+		if (0 == isLeft) {
+			acc = 1500 + 5 * powLeft;
+			if (acc > 2000) {
+				g_EngDuty[1] = 2000;
+			} else {
+				g_EngDuty[1] = acc;
+			}
+		} else {
+			acc = 1500 - 5 * powLeft;
+			if (acc < 1000) {
+				g_EngDuty[1]  = 1000;
+			} else {
+				g_EngDuty[1] = acc;
+			}
+			
+		}
+		
+	} else {
+
+		if (0 == isUp) {
+			
+			acc = 1500 + 5 * powUp;
+			if (acc > 2000) {
+				g_EngDuty[1] = 2000;
+			} else {
+				g_EngDuty[1] = acc;
+			}
+		} else {
+
+			acc = 1500 - 10 * powUp;
+			if (acc < 1000) {
+				g_EngDuty[1] = 1000;
+			} else {
+				g_EngDuty[1] = acc;
+			}
+		}
+
+		if (0 == isLeft) {
+			acc = 1500 + 5 * powLeft;
+			if (acc > 2000) {
+				g_EngDuty[0] = 2000;
+			} else {
+				g_EngDuty[0] = acc;
+			}
+		} else {
+			acc = 1500 - 5 * powLeft;
+			if (acc < 1000) {
+				g_EngDuty[0]  = 1000;
+			} else {
+				g_EngDuty[0] = acc;
+			}
+			
+		}
+
+	}
+
+	//dprint("duty0: %d, duty1: %d\r\n",g_EngDuty[0],g_EngDuty[1]);
+		
+}*/
 
 
 

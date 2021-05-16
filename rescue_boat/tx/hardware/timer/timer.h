@@ -4,7 +4,8 @@
 #include "stm32f10x.h"
 #include <stdio.h>
 
-void TIM3_Configuration(void);
+void TIM2_Configuration(void);
+void TIM3_Configuration(uint32_t period);
 u32 getTickMs(u32* tmr);
 void refreshTimer(u32* tmr);
 

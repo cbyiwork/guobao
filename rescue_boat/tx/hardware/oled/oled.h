@@ -25,6 +25,12 @@
 //#define OLED_CS PBout(15)
 //#define OLED_RST PBout(14)
 //#define OLED_RS PBout(13)
+// PB11 D0
+// PB10 D1
+// PB15 RES
+// PB14 DC
+// PB13 CS
+
 
 #define SET_CS(x) {if (x){GPIO_SetBits(GPIOB, GPIO_Pin_15);}else{GPIO_ResetBits(GPIOB, GPIO_Pin_15);}} 
 #define SET_RST(x) {if (x){GPIO_SetBits(GPIOB, GPIO_Pin_14);}else{GPIO_ResetBits(GPIOB, GPIO_Pin_14);}} 
@@ -38,8 +44,8 @@
 #define SET_SDA(x) {if (x){GPIO_SetBits(GPIOB, GPIO_Pin_11);}else{GPIO_ResetBits(GPIOB, GPIO_Pin_11);}} 
 
 
-#define LCD_PWR_CLR()	GPIO_ResetBits(GPIOB,GPIO_Pin_12)
-#define LCD_PWR_SET()	GPIO_SetBits(GPIOB,GPIO_Pin_12)
+//#define LCD_PWR_CLR()	GPIO_ResetBits(GPIOB,GPIO_Pin_12)
+//#define LCD_PWR_SET()	GPIO_SetBits(GPIOB,GPIO_Pin_12)
 
 #define PWR_LED_ON()		GPIO_SetBits(GPIOA,GPIO_Pin_15)
 #define PWR_LED_OFF()		GPIO_ResetBits(GPIOA,GPIO_Pin_15)
@@ -60,6 +66,9 @@ void OLED_ShowChar(u8 x,u8 y,u8 chr,u8 size,u8 mode);
 void OLED_ShowNum(u8 x,u8 y,u32 num,u8 len,u8 size);
 void OLED_ShowString(u8 x,u8 y,const u8 *p);	 
 void refreshScreen(void) ;
+void addMenuFrame(void);
+void addMenuFrame(void);
+
 
 extern u8 OLED_GRAM[128][8];
 
